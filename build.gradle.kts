@@ -1,30 +1,14 @@
 plugins {
-    kotlin("jvm") version "2.0.21"
-    kotlin("plugin.serialization") version "2.0.21"
+    kotlin("jvm") version "2.2.10"
+    kotlin("plugin.serialization") version "2.2.10"
     `maven-publish`
 }
 
-group = "org.koitharu.kotatsu"
+group = "org.draken"
 version = "1.0.0"
 
-repositories {
-    mavenCentral()
-    google()
-}
-
-dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-    implementation("androidx.collection:collection-ktx:1.4.4")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
-    implementation("com.squareup.okio:okio:3.9.1")
-    implementation("org.jsoup:jsoup:1.18.3")
-    implementation("org.json:json:20240303")
-}
-
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(11)
     compilerOptions {
         freeCompilerArgs.addAll(
             "-opt-in=kotlin.RequiresOptIn",
@@ -41,4 +25,17 @@ publishing {
             from(components["java"])
         }
     }
+}
+
+dependencies {
+    implementation(libs.androidx.collection.ktx)
+
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.jsoup)
+    implementation(libs.json)
+
+    implementation(libs.bundles.okhttp)
+    implementation(libs.okio)
 }

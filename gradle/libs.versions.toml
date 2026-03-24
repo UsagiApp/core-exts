@@ -1,0 +1,21 @@
+[versions]
+coroutines = "1.10.2"
+collectionKtx = "1.4.4"
+serializationJson = "1.7.3"
+okhttp = "5.3.2"
+okio = "3.16.4"
+jsoup = "1.22.1"
+json = "20251224"
+
+[libraries]
+androidx-collection-ktx = { module = "androidx.collection:collection-ktx", version.ref = "collectionKtx" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+json = { module = "org.json:json", version.ref = "json" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-doh = { module = "com.squareup.okhttp3:okhttp-dnsoverhttps", version.ref = "okhttp" }
+okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+
+[bundles]
+okhttp = ["okhttp", "okhttp-doh"]
