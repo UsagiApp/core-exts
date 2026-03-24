@@ -2,7 +2,7 @@
 
 This library only provides the core components for implementing an parser to access specific content that has already been implemented by the programmer. It can be used in JVM and Android applications.
 
-[![](https://jitpack.io/v/UsagiApp/core-exts.svg)](https://jitpack.io/#YakaTeam/kotatsu-parsers) ![License](https://img.shields.io/github/license/UsagiApp/core-exts)
+[![](https://jitpack.io/v/UsagiApp/core-exts.svg)](https://jitpack.io/#UsagiApp/core-exts) ![License](https://img.shields.io/github/license/UsagiApp/core-exts)
 
 ## Usage
 
