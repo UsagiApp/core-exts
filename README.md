@@ -1,6 +1,6 @@
 # core-exts
 
-This library only provides the core components for implementing an parser to access specific content that has already been implemented by the programmer. It can be used in JVM and Android applications.
+This library only provides the core components for implementing / load external plugins to access specific content. It can be used in JVM and Android applications.
 
 [![](https://jitpack.io/v/UsagiApp/core-exts.svg)](https://jitpack.io/#UsagiApp/core-exts) ![License](https://img.shields.io/github/license/UsagiApp/core-exts)
 
@@ -17,12 +17,12 @@ This library only provides the core components for implementing an parser to acc
    }
    ```
 
-2. Add the dependency (in Java / Kotlin / Android project)
+2. Add the dependency (in your Java / Kotlin / Android project)
 
     ```groovy
-       dependencies {
-           implementation("com.github.UsagiApp:core-exts:$version")
-       }
+    dependencies {
+       implementation("com.github.UsagiApp:core-exts:$version")
+    }
     ```
 
     Versions are available on [JitPack](https://jitpack.io/#UsagiApp/core-exts)
@@ -34,7 +34,7 @@ This library only provides the core components for implementing an parser to acc
 
 3. Usage in code
 
-    TODO
+    **TODO**
 
 ## License
 
