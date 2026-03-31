@@ -1,3 +1,5 @@
+-keepattributes Exceptions,Signature,InnerClasses,EnclosingMethod
+
 -keep class kotlin.** { *; }
 -keep class kotlinx.coroutines.** { *; }
 
