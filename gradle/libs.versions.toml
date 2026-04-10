@@ -3,7 +3,7 @@ coroutines = "1.10.2"
 collectionKtx = "1.4.4"
 serializationJson = "1.7.3"
 okhttp = "5.3.2"
-okio = "3.16.4"
+okio = "3.17.0"
 jsoup = "1.22.1"
 json = "20251224"
 
