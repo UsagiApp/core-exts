@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.online.ResolvableSource
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
+import okhttp3.Request
 import okhttp3.Response
 import org.koitharu.kotatsu.parsers.InternalParsersApi
 import org.koitharu.kotatsu.parsers.MangaParser
@@ -88,21 +89,34 @@ class TachiyomiMangaParser(
 
 	override suspend fun getList(offset: Int, order: SortOrder, filter: MangaListFilter): List<Manga> {
 		val query = filter.query?.trim().orEmpty()
+		val httpSource = tachiyomiSource as? HttpSource
 		val pagingKey = when {
 			query.isNotEmpty() -> "search|$query"
 			order in LATEST_SORT_ORDERS && tachiyomiSource.supportsLatest -> "latest"
 			else -> "popular"
 		}
-		syncWebSession((tachiyomiSource as? HttpSource)?.baseUrl)
+		syncWebSession(httpSource?.baseUrl)
 
 		if (offset == 0) {
 			pagingStates.remove(pagingKey)
 		}
 		val page = resolvePage(pagingKey, offset)
 		val mangasPage = when (pagingKey) {
-			"latest" -> tachiyomiSource.getLatestUpdates(page)
-			"popular" -> tachiyomiSource.getPopularManga(page)
-			else -> tachiyomiSource.getSearchManga(page, query, FilterList())
+			"latest" -> {
+				syncWebSession(httpSource?.invokeRequestUrl("latestUpdatesRequest", page))
+				tachiyomiSource.getLatestUpdates(page)
+			}
+
+			"popular" -> {
+				syncWebSession(httpSource?.invokeRequestUrl("popularMangaRequest", page))
+				tachiyomiSource.getPopularManga(page)
+			}
+
+			else -> {
+				val searchFilters = FilterList()
+				syncWebSession(httpSource?.invokeRequestUrl("searchMangaRequest", page, query, searchFilters))
+				tachiyomiSource.getSearchManga(page, query, searchFilters)
+			}
 		}
 		updatePaging(
 			pagingKey = pagingKey,
@@ -115,16 +129,20 @@ class TachiyomiMangaParser(
 	}
 
 	override suspend fun getDetails(manga: Manga): Manga {
+		val httpSource = tachiyomiSource as? HttpSource
 		val seed = manga.toSManga()
-		syncWebSession(seed.safeUrl().toAbsoluteUrl((tachiyomiSource as? HttpSource)?.baseUrl))
+		syncWebSession(seed.safeUrl().toAbsoluteUrl(httpSource?.baseUrl))
+		syncWebSession(httpSource?.invokeRequestUrl("mangaDetailsRequest", seed))
 		val details = tachiyomiSource.getMangaDetails(seed)
 		val chapters = getChapters(seed, details)
 		return details.toManga(source, chapters)
 	}
 
 	override suspend fun getPages(chapter: MangaChapter): List<MangaPage> {
+		val httpSource = tachiyomiSource as? HttpSource
 		val tChapter = chapter.toSChapter()
-		syncWebSession(tChapter.safeUrl().toAbsoluteUrl((tachiyomiSource as? HttpSource)?.baseUrl))
+		syncWebSession(tChapter.safeUrl().toAbsoluteUrl(httpSource?.baseUrl))
+		syncWebSession(httpSource?.invokeRequestUrl("pageListRequest", tChapter))
 		val pages = tachiyomiSource.getPageList(tChapter)
 		return pages.map { page ->
 			val pageId = stableId("page|${source.name}|${chapter.url}|${page.index}|${page.url}|${page.imageUrl.orEmpty()}")
@@ -146,6 +164,7 @@ class TachiyomiMangaParser(
 		val httpSource = tachiyomiSource as? HttpSource
 		if (httpSource != null) {
 			syncWebSession(tPage.url.ifBlank { page.url })
+			syncWebSession(httpSource.invokeRequestUrl("imageUrlRequest", tPage))
 			return httpSource.getImageUrl(tPage)
 		}
 		return tPage.url.ifBlank { page.preview.orEmpty() }
@@ -285,13 +304,18 @@ class TachiyomiMangaParser(
 	private fun SChapter.safeName(): String = runCatching { name }.getOrDefault("")
 
 	private suspend fun syncWebSession(url: String?) {
-		val target = url?.takeIf { it.isNotBlank() }
-			?: (tachiyomiSource as? HttpSource)?.baseUrl
-			?: return
-		try {
-			RuntimeContext.syncWebSession(target)
-		} catch (e: Exception) {
-			if (e is CancellationException) throw e
+		val baseUrl = (tachiyomiSource as? HttpSource)?.baseUrl
+		val targets = LinkedHashSet<String>(2).apply {
+			baseUrl?.takeIf { it.isNotBlank() }?.let(::add)
+			url?.takeIf { it.isNotBlank() }?.let(::add)
+		}
+		if (targets.isEmpty()) return
+		for (target in targets) {
+			try {
+				RuntimeContext.syncWebSession(target)
+			} catch (e: Exception) {
+				if (e is CancellationException) throw e
+			}
 		}
 	}
 
@@ -304,8 +328,10 @@ class TachiyomiMangaParser(
 	}
 
 	private suspend fun getChapters(seed: SManga, details: SManga): List<SChapter> {
+		val httpSource = tachiyomiSource as? HttpSource
 		var primaryError: Throwable? = null
 		val primary = runCatching {
+			syncWebSession(httpSource?.invokeRequestUrl("chapterListRequest", details))
 			tachiyomiSource.getChapterList(details)
 		}.onFailure {
 			primaryError = it
@@ -313,11 +339,12 @@ class TachiyomiMangaParser(
 			emptyList()
 		}
 		if (primary.isNotEmpty()) {
-			return primary
+			return normalizeChapterOrder(primary)
 		}
 
 		var fallbackError: Throwable? = null
 		val fallback = runCatching {
+			syncWebSession(httpSource?.invokeRequestUrl("chapterListRequest", seed))
 			tachiyomiSource.getChapterList(seed)
 		}.onFailure {
 			fallbackError = it
@@ -325,13 +352,121 @@ class TachiyomiMangaParser(
 			emptyList()
 		}
 		if (fallback.isNotEmpty()) {
-			return fallback
+			return normalizeChapterOrder(fallback)
 		}
 
 		if (primaryError != null || fallbackError != null) {
 			throw (fallbackError ?: primaryError ?: IllegalStateException("Cannot load chapter list"))
 		}
 		return emptyList()
+	}
+
+	private fun normalizeChapterOrder(chapters: List<SChapter>): List<SChapter> {
+		if (chapters.size < 2) return chapters
+		val byNumber = detectChapterNumberOrder(chapters)
+		val byDate = detectChapterDateOrder(chapters)
+		val order = when {
+			byNumber != SortDirection.UNKNOWN -> byNumber
+			byDate != SortDirection.UNKNOWN -> byDate
+			else -> SortDirection.UNKNOWN
+		}
+		return if (order == SortDirection.ASCENDING) chapters.asReversed() else chapters
+	}
+
+	private fun detectChapterNumberOrder(chapters: List<SChapter>): SortDirection {
+		var asc = 0
+		var desc = 0
+		var previous: Float? = null
+		for (chapter in chapters) {
+			val number = chapter.chapter_number
+				.takeIf { it > 0f }
+				?: parseChapterNumber(chapter.safeName()).takeIf { it > 0f }
+				?: continue
+			val prev = previous
+			if (prev != null) {
+				when {
+					number > prev + CHAPTER_NUMBER_EPSILON -> asc++
+					number < prev - CHAPTER_NUMBER_EPSILON -> desc++
+				}
+			}
+			previous = number
+		}
+		return resolveOrder(asc, desc)
+	}
+
+	private fun detectChapterDateOrder(chapters: List<SChapter>): SortDirection {
+		var asc = 0
+		var desc = 0
+		var previous: Long? = null
+		for (chapter in chapters) {
+			val date = chapter.date_upload.takeIf { it > 0L } ?: continue
+			val prev = previous
+			if (prev != null) {
+				when {
+					date > prev -> asc++
+					date < prev -> desc++
+				}
+			}
+			previous = date
+		}
+		return resolveOrder(asc, desc)
+	}
+
+	private fun resolveOrder(asc: Int, desc: Int): SortDirection {
+		val comparisons = asc + desc
+		if (comparisons < MIN_ORDER_COMPARISONS) {
+			return SortDirection.UNKNOWN
+		}
+		val ascValue = asc.toFloat()
+		val descValue = desc.toFloat()
+		return when {
+			ascValue >= (descValue * ORDER_DOMINANCE_FACTOR) -> SortDirection.ASCENDING
+			descValue >= (ascValue * ORDER_DOMINANCE_FACTOR) -> SortDirection.DESCENDING
+			else -> SortDirection.UNKNOWN
+		}
+	}
+
+	private fun HttpSource.invokeRequestUrl(methodName: String, vararg args: Any?): String? {
+		val method = findDeclaredMethod(javaClass, methodName, args) ?: return null
+		return runCatching {
+			method.isAccessible = true
+			(method.invoke(this, *args) as? Request)?.url?.toString()
+		}.getOrNull()
+	}
+
+	private fun findDeclaredMethod(targetClass: Class<*>, name: String, args: Array<out Any?>): java.lang.reflect.Method? {
+		var current: Class<*>? = targetClass
+		while (current != null) {
+			val method = current.declaredMethods.firstOrNull { method ->
+				method.name == name &&
+					method.parameterTypes.size == args.size &&
+					method.parameterTypes.indices.all { index ->
+						isArgumentCompatible(method.parameterTypes[index], args[index])
+					}
+			}
+			if (method != null) {
+				return method
+			}
+			current = current.superclass
+		}
+		return null
+	}
+
+	private fun isArgumentCompatible(parameterType: Class<*>, argument: Any?): Boolean {
+		if (argument == null) return !parameterType.isPrimitive
+		return boxedClass(parameterType).isInstance(argument)
+	}
+
+	private fun boxedClass(type: Class<*>): Class<*> = when (type) {
+		java.lang.Integer.TYPE -> java.lang.Integer::class.java
+		java.lang.Long.TYPE -> java.lang.Long::class.java
+		java.lang.Float.TYPE -> java.lang.Float::class.java
+		java.lang.Double.TYPE -> java.lang.Double::class.java
+		java.lang.Boolean.TYPE -> java.lang.Boolean::class.java
+		java.lang.Byte.TYPE -> java.lang.Byte::class.java
+		java.lang.Short.TYPE -> java.lang.Short::class.java
+		java.lang.Character.TYPE -> java.lang.Character::class.java
+		else -> type
 	}
 
 	private fun resolvePage(pagingKey: String, offset: Int): Int {
@@ -402,6 +537,12 @@ class TachiyomiMangaParser(
 		val nextByOffset: MutableMap<Int, Int> = ConcurrentHashMap(),
 	)
 
+	private enum class SortDirection {
+		ASCENDING,
+		DESCENDING,
+		UNKNOWN,
+	}
+
 	companion object {
 		private const val DEFAULT_PAGE_SIZE = 30
 		private const val DEFAULT_UA =
@@ -416,5 +557,8 @@ class TachiyomiMangaParser(
 		)
 		private val CHAPTER_NUMBER_REGEX = Regex("""(?i)(?:ch(?:apter)?|ep(?:isode)?|#)?\s*(\d+(?:\.\d+)?)""")
 		private val VOLUME_REGEX = Regex("""(?i)(?:vol(?:ume)?)\s*(\d+)""")
+		private const val MIN_ORDER_COMPARISONS = 3
+		private const val ORDER_DOMINANCE_FACTOR = 1.2f
+		private const val CHAPTER_NUMBER_EPSILON = 0.0001f
 	}
 }
