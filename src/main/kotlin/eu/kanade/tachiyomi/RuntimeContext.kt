@@ -12,6 +12,8 @@ object RuntimeContext {
 	private var cloudflareClient: OkHttpClient? = null
 	@Volatile
 	private var userAgentProvider: (() -> String)? = null
+	@Volatile
+	private var webSessionSync: (suspend (String) -> Unit)? = null
 
 	fun init(context: Context) {
 		appContext = context.applicationContext
@@ -21,10 +23,12 @@ object RuntimeContext {
 		client: OkHttpClient,
 		cloudflare: OkHttpClient = client,
 		userAgent: (() -> String)? = null,
+		webSessionSync: (suspend (String) -> Unit)? = null,
 	) {
 		okHttpClient = client
 		cloudflareClient = cloudflare
 		userAgentProvider = userAgent
+		this.webSessionSync = webSessionSync
 	}
 
 	fun requireContext(): Context {
@@ -41,5 +45,9 @@ object RuntimeContext {
 
 	fun defaultUserAgent(): String {
 		return userAgentProvider?.invoke().orEmpty()
+	}
+
+	suspend fun syncWebSession(url: String) {
+		webSessionSync?.invoke(url)
 	}
 }

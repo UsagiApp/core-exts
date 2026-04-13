@@ -1,5 +1,6 @@
 package org.draken.usagi.core.parser.tachiyomi
 
+import eu.kanade.tachiyomi.RuntimeContext
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
@@ -38,6 +39,7 @@ import java.security.MessageDigest
 import java.util.EnumSet
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
 
 class TachiyomiMangaParser(
 	override val source: MangaSource,
@@ -91,6 +93,7 @@ class TachiyomiMangaParser(
 			order in LATEST_SORT_ORDERS && tachiyomiSource.supportsLatest -> "latest"
 			else -> "popular"
 		}
+		syncWebSession((tachiyomiSource as? HttpSource)?.baseUrl)
 
 		if (offset == 0) {
 			pagingStates.remove(pagingKey)
@@ -113,6 +116,7 @@ class TachiyomiMangaParser(
 
 	override suspend fun getDetails(manga: Manga): Manga {
 		val seed = manga.toSManga()
+		syncWebSession(seed.safeUrl().toAbsoluteUrl((tachiyomiSource as? HttpSource)?.baseUrl))
 		val details = tachiyomiSource.getMangaDetails(seed)
 		val chapters = getChapters(seed, details)
 		return details.toManga(source, chapters)
@@ -120,6 +124,7 @@ class TachiyomiMangaParser(
 
 	override suspend fun getPages(chapter: MangaChapter): List<MangaPage> {
 		val tChapter = chapter.toSChapter()
+		syncWebSession(tChapter.safeUrl().toAbsoluteUrl((tachiyomiSource as? HttpSource)?.baseUrl))
 		val pages = tachiyomiSource.getPageList(tChapter)
 		return pages.map { page ->
 			val pageId = stableId("page|${source.name}|${chapter.url}|${page.index}|${page.url}|${page.imageUrl.orEmpty()}")
@@ -140,6 +145,7 @@ class TachiyomiMangaParser(
 		if (imageUrl != null) return imageUrl
 		val httpSource = tachiyomiSource as? HttpSource
 		if (httpSource != null) {
+			syncWebSession(tPage.url.ifBlank { page.url })
 			return httpSource.getImageUrl(tPage)
 		}
 		return tPage.url.ifBlank { page.preview.orEmpty() }
@@ -277,6 +283,17 @@ class TachiyomiMangaParser(
 	private fun SChapter.safeUrl(): String = runCatching { url }.getOrDefault("")
 
 	private fun SChapter.safeName(): String = runCatching { name }.getOrDefault("")
+
+	private suspend fun syncWebSession(url: String?) {
+		val target = url?.takeIf { it.isNotBlank() }
+			?: (tachiyomiSource as? HttpSource)?.baseUrl
+			?: return
+		try {
+			RuntimeContext.syncWebSession(target)
+		} catch (e: Exception) {
+			if (e is CancellationException) throw e
+		}
+	}
 
 	private fun parseChapterNumber(name: String): Float {
 		return CHAPTER_NUMBER_REGEX.find(name)?.groupValues?.getOrNull(1)?.toFloatOrNull() ?: 0f
