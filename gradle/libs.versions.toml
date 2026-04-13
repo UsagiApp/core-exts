@@ -1,14 +1,19 @@
 [versions]
+agp = "8.13.0"
+kotlin = "2.2.10"
 coroutines = "1.10.2"
-collectionKtx = "1.4.4"
-serializationJson = "1.7.3"
+collectionKtx = "1.6.0"
+serializationJson = "1.11.0"
 okhttp = "5.3.2"
 okio = "3.17.0"
 jsoup = "1.22.1"
 json = "20251224"
+preference = "1.2.1"
+rxjava1 = "1.3.8"
 
 [libraries]
 androidx-collection-ktx = { module = "androidx.collection:collection-ktx", version.ref = "collectionKtx" }
+androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 json = { module = "org.json:json", version.ref = "json" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -16,6 +21,12 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-doh = { module = "com.squareup.okhttp3:okhttp-dnsoverhttps", version.ref = "okhttp" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+rxjava1 = { module = "io.reactivex:rxjava", version.ref = "rxjava1" }
 
 [bundles]
 okhttp = ["okhttp", "okhttp-doh"]
+
+[plugins]
+android-library = { id = "com.android.library", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
