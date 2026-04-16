@@ -16,7 +16,9 @@ public object CloudFlareHelper {
     private const val CF_CLEARANCE = "cf_clearance"
 
     public fun checkResponseForProtection(response: Response): Int {
-        if (response.code != HTTP_FORBIDDEN && response.code != HTTP_UNAVAILABLE) {
+        val hasMitigatedChallengeHeader = response.header("cf-mitigated")
+            ?.equals("challenge", ignoreCase = true) == true
+        if (!hasMitigatedChallengeHeader && response.code != HTTP_FORBIDDEN && response.code != HTTP_UNAVAILABLE) {
             return PROTECTION_NOT_DETECTED
         }
         val content = try {

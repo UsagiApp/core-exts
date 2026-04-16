@@ -17,6 +17,7 @@ import org.koitharu.kotatsu.parsers.InternalParsersApi
 import org.koitharu.kotatsu.parsers.MangaParser
 import org.koitharu.kotatsu.parsers.config.ConfigKey
 import org.koitharu.kotatsu.parsers.config.MangaSourceConfig
+import org.koitharu.kotatsu.parsers.exception.ParseException
 import org.koitharu.kotatsu.parsers.model.ContentRating
 import org.koitharu.kotatsu.parsers.model.Favicons
 import org.koitharu.kotatsu.parsers.model.Manga
@@ -133,7 +134,14 @@ class TachiyomiMangaParser(
 		val seed = manga.toSManga()
 		syncWebSession(seed.safeUrl().toAbsoluteUrl(httpSource?.baseUrl))
 		syncWebSession(httpSource?.invokeRequestUrl("mangaDetailsRequest", seed))
-		val details = tachiyomiSource.getMangaDetails(seed)
+		val details = try {
+			tachiyomiSource.getMangaDetails(seed)
+		} catch (e: Throwable) {
+			throw mapCaptchaException(
+				cause = e,
+				url = resolveMangaUrl(seed, httpSource),
+			)
+		}
 		val chapters = getChapters(seed, details)
 		return details.toManga(source, chapters)
 	}
@@ -143,7 +151,14 @@ class TachiyomiMangaParser(
 		val tChapter = chapter.toSChapter()
 		syncWebSession(tChapter.safeUrl().toAbsoluteUrl(httpSource?.baseUrl))
 		syncWebSession(httpSource?.invokeRequestUrl("pageListRequest", tChapter))
-		val pages = tachiyomiSource.getPageList(tChapter)
+		val pages = try {
+			tachiyomiSource.getPageList(tChapter)
+		} catch (e: Throwable) {
+			throw mapCaptchaException(
+				cause = e,
+				url = resolveChapterUrl(tChapter, httpSource),
+			)
+		}
 		return pages.map { page ->
 			val pageId = stableId("page|${source.name}|${chapter.url}|${page.index}|${page.url}|${page.imageUrl.orEmpty()}")
 			pageMap[pageId] = page
@@ -334,7 +349,7 @@ class TachiyomiMangaParser(
 			syncWebSession(httpSource?.invokeRequestUrl("chapterListRequest", details))
 			tachiyomiSource.getChapterList(details)
 		}.onFailure {
-			primaryError = it
+			primaryError = mapCaptchaException(it, resolveMangaUrl(details, httpSource))
 		}.getOrElse {
 			emptyList()
 		}
@@ -347,7 +362,7 @@ class TachiyomiMangaParser(
 			syncWebSession(httpSource?.invokeRequestUrl("chapterListRequest", seed))
 			tachiyomiSource.getChapterList(seed)
 		}.onFailure {
-			fallbackError = it
+			fallbackError = mapCaptchaException(it, resolveMangaUrl(seed, httpSource))
 		}.getOrElse {
 			emptyList()
 		}
@@ -370,7 +385,41 @@ class TachiyomiMangaParser(
 			byDate != SortDirection.UNKNOWN -> byDate
 			else -> SortDirection.UNKNOWN
 		}
-		return if (order == SortDirection.ASCENDING) chapters.asReversed() else chapters
+		return if (order == SortDirection.DESCENDING) chapters.asReversed() else chapters
+	}
+
+	private fun mapCaptchaException(cause: Throwable, url: String): Throwable {
+		if (cause is ParseException) return cause
+		val signal = generateSequence(cause) { it.cause }
+			.mapNotNull { it.message }
+			.firstOrNull { message -> isCaptchaMessage(message) }
+			?: return cause
+		return ParseException(
+			shortMessage = signal,
+			url = url,
+			cause = cause,
+		)
+	}
+
+	private fun isCaptchaMessage(message: String): Boolean {
+		val lower = message.lowercase(Locale.ROOT)
+		return CAPTCHA_KEYWORDS.any { it in lower }
+	}
+
+	private fun resolveMangaUrl(manga: SManga, httpSource: HttpSource?): String {
+		val resolved = runCatching { httpSource?.getMangaUrl(manga) }
+			.getOrNull()
+			.orEmpty()
+		if (resolved.isNotBlank()) return resolved
+		return manga.safeUrl().toAbsoluteUrl(httpSource?.baseUrl)
+	}
+
+	private fun resolveChapterUrl(chapter: SChapter, httpSource: HttpSource?): String {
+		val resolved = runCatching { httpSource?.getChapterUrl(chapter) }
+			.getOrNull()
+			.orEmpty()
+		if (resolved.isNotBlank()) return resolved
+		return chapter.safeUrl().toAbsoluteUrl(httpSource?.baseUrl)
 	}
 
 	private fun detectChapterNumberOrder(chapters: List<SChapter>): SortDirection {
@@ -560,5 +609,13 @@ class TachiyomiMangaParser(
 		private const val MIN_ORDER_COMPARISONS = 3
 		private const val ORDER_DOMINANCE_FACTOR = 1.2f
 		private const val CHAPTER_NUMBER_EPSILON = 0.0001f
+		private val CAPTCHA_KEYWORDS = listOf(
+			"cloudflare",
+			"turnstile",
+			"captcha",
+			"verify you are human",
+			"just a moment",
+			"webview",
+		)
 	}
 }
