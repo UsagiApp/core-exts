@@ -6,6 +6,7 @@ import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import org.jsoup.HttpStatusException
 import rx.Observable
 import rx.Producer
 import rx.Subscription
@@ -46,8 +47,9 @@ fun Call.asObservable(): Observable<Response> {
 
 fun Call.asObservableSuccess(): Observable<Response> = asObservable().doOnNext { response ->
 	if (!response.isSuccessful) {
+		val url = response.request.url.toString()
 		response.close()
-		throw HttpException(response.code)
+		throw HttpException(response.code, url)
 	}
 }
 
@@ -84,8 +86,9 @@ suspend fun Call.awaitSuccess(): Response {
 	val callStack = Exception().stackTrace.run { copyOfRange(1, size) }
 	val response = await(callStack)
 	if (!response.isSuccessful) {
+		val url = response.request.url.toString()
 		response.close()
-		throw HttpException(response.code).apply { stackTrace = callStack }
+		throw HttpException(response.code, url).apply { stackTrace = callStack }
 	}
 	return response
 }
@@ -106,5 +109,6 @@ fun OkHttpClient.newCachelessCallWithProgress(
 }
 
 class HttpException(
-	val code: Int,
-) : IllegalStateException("HTTP error $code")
+	code: Int,
+	url: String = "",
+) : HttpStatusException("HTTP error $code", code, url)

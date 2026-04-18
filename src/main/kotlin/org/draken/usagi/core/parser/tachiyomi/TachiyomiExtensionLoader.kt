@@ -33,9 +33,7 @@ object TachiyomiExtensionLoader {
 		val classLoader = DexClassLoader(apk.absolutePath, optimizedDirectory, null, parent)
 		val sources = runCatching {
 			createSources(classLoader, meta.className)
-		}.getOrElse {
-			emptyList()
-		}
+		}.getOrElse { emptyList() }
 		if (sources.isEmpty()) return null
 		return TachiyomiExtensionLoadResult(
 			classLoader = classLoader,
@@ -64,7 +62,7 @@ object TachiyomiExtensionLoader {
 		if (className.startsWith('.')) {
 			className = packageInfo.packageName + className
 		}
-		val packageName = packageInfo.packageName.orEmpty().ifBlank { apk.nameWithoutExtension }
+		val packageName = packageInfo.packageName.ifBlank { apk.nameWithoutExtension }
 		val isNsfw = parseNsfw(metaData.get(METADATA_NSFW))
 		return TachiyomiExtensionMeta(
 			packageName = packageName,
@@ -75,8 +73,7 @@ object TachiyomiExtensionLoader {
 
 	fun createSources(classLoader: ClassLoader, className: String): List<CatalogueSource> {
 		val clazz = classLoader.loadClass(className)
-		val instance = clazz.getDeclaredConstructor().newInstance()
-		val allSources = when (instance) {
+        val allSources = when (val instance = clazz.getDeclaredConstructor().newInstance()) {
 			is Source -> listOf(instance)
 			is SourceFactory -> instance.createSources()
 			else -> emptyList()
@@ -96,4 +93,5 @@ object TachiyomiExtensionLoader {
 
 	private const val METADATA_SOURCE_CLASS = "tachiyomi.extension.class"
 	private const val METADATA_NSFW = "tachiyomi.extension.nsfw"
+	private const val TAG = "TachiyomiExtLoader"
 }

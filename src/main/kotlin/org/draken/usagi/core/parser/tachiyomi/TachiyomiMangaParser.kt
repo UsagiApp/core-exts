@@ -1,6 +1,7 @@
 package org.draken.usagi.core.parser.tachiyomi
 
 import eu.kanade.tachiyomi.RuntimeContext
+import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
@@ -69,9 +70,16 @@ class TachiyomiMangaParser(
 	@Suppress("DEPRECATION")
 	override val searchQueryCapabilities: MangaSearchQueryCapabilities = MangaSearchQueryCapabilities()
 
-	override val filterCapabilities: MangaListFilterCapabilities = MangaListFilterCapabilities(
-		isSearchSupported = true,
-	)
+	private val cachedFilterInfo by lazy { extractFilterInfo() }
+
+	override val filterCapabilities: MangaListFilterCapabilities by lazy {
+		val info = cachedFilterInfo
+		MangaListFilterCapabilities(
+			isSearchSupported = true,
+			isMultipleTagsSupported = info.genreGroups.isNotEmpty(),
+			isTagsExclusionSupported = info.hasTriStateGenres,
+		)
+	}
 
 	override val domain: String
 		get() = sourceConfig[configKeyDomain]
@@ -91,8 +99,10 @@ class TachiyomiMangaParser(
 	override suspend fun getList(offset: Int, order: SortOrder, filter: MangaListFilter): List<Manga> {
 		val query = filter.query?.trim().orEmpty()
 		val httpSource = tachiyomiSource as? HttpSource
+		val hasFilters = filter.tags.isNotEmpty() || filter.tagsExclude.isNotEmpty()
 		val pagingKey = when {
 			query.isNotEmpty() -> "search|$query"
+			hasFilters -> "search|filters|${filter.tags.hashCode()}|${filter.tagsExclude.hashCode()}"
 			order in LATEST_SORT_ORDERS && tachiyomiSource.supportsLatest -> "latest"
 			else -> "popular"
 		}
@@ -103,22 +113,20 @@ class TachiyomiMangaParser(
 		}
 		val page = resolvePage(pagingKey, offset)
 		val mangasPage = when (pagingKey) {
-			"latest" -> {
-				syncWebSession(httpSource?.invokeRequestUrl("latestUpdatesRequest", page))
-				tachiyomiSource.getLatestUpdates(page)
-			}
-
-			"popular" -> {
-				syncWebSession(httpSource?.invokeRequestUrl("popularMangaRequest", page))
-				tachiyomiSource.getPopularManga(page)
-			}
-
-			else -> {
-				val searchFilters = FilterList()
-				syncWebSession(httpSource?.invokeRequestUrl("searchMangaRequest", page, query, searchFilters))
-				tachiyomiSource.getSearchManga(page, query, searchFilters)
-			}
-		}
+            "latest" -> {
+                syncWebSession(httpSource?.invokeRequestUrl("latestUpdatesRequest", page))
+                tachiyomiSource.getLatestUpdates(page)
+            }
+            "popular" -> {
+                syncWebSession(httpSource?.invokeRequestUrl("popularMangaRequest", page))
+                tachiyomiSource.getPopularManga(page)
+            }
+            else -> {
+                val searchFilters = buildTachiyomiFilterList(filter)
+                syncWebSession(httpSource?.invokeRequestUrl("searchMangaRequest", page, query, searchFilters))
+                tachiyomiSource.getSearchManga(page, query, searchFilters)
+            }
+        }
 		updatePaging(
 			pagingKey = pagingKey,
 			offset = offset,
@@ -186,7 +194,10 @@ class TachiyomiMangaParser(
 	}
 
 	override suspend fun getFilterOptions(): MangaListFilterOptions {
-		return MangaListFilterOptions()
+		val info = cachedFilterInfo
+		return MangaListFilterOptions(
+			availableTags = info.tags,
+		)
 	}
 
 	override suspend fun getFavicons(): Favicons {
@@ -198,7 +209,8 @@ class TachiyomiMangaParser(
 
 	override fun onCreateConfig(keys: MutableCollection<ConfigKey<*>>) {
 		keys += configKeyDomain
-		keys += ConfigKey.UserAgent(DEFAULT_UA)
+		val ua = RuntimeContext.defaultUserAgent().ifBlank { DEFAULT_UA }
+		keys += ConfigKey.UserAgent(ua)
 	}
 
 	override suspend fun getRelatedManga(seed: Manga): List<Manga> = emptyList()
@@ -592,10 +604,83 @@ class TachiyomiMangaParser(
 		UNKNOWN,
 	}
 
+	private fun buildTachiyomiFilterList(filter: MangaListFilter): FilterList {
+		if (filter.tags.isEmpty() && filter.tagsExclude.isEmpty()) {
+			return FilterList()
+		}
+		val baseFilters = runCatching { tachiyomiSource.getFilterList() }.getOrElse { return FilterList() }
+		val includeKeys = filter.tags.mapTo(HashSet()) { it.key }
+		val excludeKeys = filter.tagsExclude.mapTo(HashSet()) { it.key }
+		for (f in baseFilters) {
+			if (f !is Filter.Group<*>) continue
+			for (child in f.state) {
+				when (child) {
+					is Filter.CheckBox -> {
+						val key = child.name.lowercase(Locale.ROOT)
+						if (key in includeKeys) {
+							child.state = true
+						}
+					}
+					is Filter.TriState -> {
+						val key = child.name.lowercase(Locale.ROOT)
+						when {
+							key in includeKeys -> child.state = Filter.TriState.STATE_INCLUDE
+							key in excludeKeys -> child.state = Filter.TriState.STATE_EXCLUDE
+						}
+					}
+				}
+			}
+		}
+		return baseFilters
+	}
+
+	private data class FilterInfo(
+		val tags: Set<MangaTag>,
+		val genreGroups: List<Filter.Group<*>>,
+		val hasTriStateGenres: Boolean,
+	)
+
+	private fun extractFilterInfo(): FilterInfo {
+		val filterList = runCatching { tachiyomiSource.getFilterList() }.getOrElse {
+			return FilterInfo(emptySet(), emptyList(), false)
+		}
+		val tags = LinkedHashSet<MangaTag>()
+		val genreGroups = mutableListOf<Filter.Group<*>>()
+		var hasTriState = false
+
+		for (filter in filterList) {
+			if (filter !is Filter.Group<*>) continue
+			val children = filter.state
+			if (children.isEmpty()) continue
+			val isCheckBoxGroup = children.all { it is Filter.CheckBox }
+			val isTriStateGroup = children.all { it is Filter.TriState }
+			if (!isCheckBoxGroup && !isTriStateGroup) continue
+			val name = filter.name.lowercase(Locale.ROOT)
+			val isGenreLike = GENRE_GROUP_KEYWORDS.any { it in name } || children.size >= MIN_GENRE_GROUP_SIZE
+			if (!isGenreLike) continue
+			genreGroups += filter
+			if (isTriStateGroup) hasTriState = true
+			for (child in children) {
+				val childName = when (child) {
+					is Filter.CheckBox -> child.name
+					is Filter.TriState -> child.name
+					else -> continue
+				}
+				if (childName.isBlank()) continue
+				tags += MangaTag(
+					title = childName,
+					key = childName.lowercase(Locale.ROOT),
+					source = source,
+				)
+			}
+		}
+		return FilterInfo(tags, genreGroups, hasTriState)
+	}
+
 	companion object {
 		private const val DEFAULT_PAGE_SIZE = 30
 		private const val DEFAULT_UA =
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+			"Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.200 Mobile Safari/537.36"
 		private val LATEST_SORT_ORDERS = setOf(
 			SortOrder.UPDATED,
 			SortOrder.UPDATED_ASC,
@@ -609,6 +694,10 @@ class TachiyomiMangaParser(
 		private const val MIN_ORDER_COMPARISONS = 3
 		private const val ORDER_DOMINANCE_FACTOR = 1.2f
 		private const val CHAPTER_NUMBER_EPSILON = 0.0001f
+		private const val MIN_GENRE_GROUP_SIZE = 5
+		private val GENRE_GROUP_KEYWORDS = listOf(
+			"genre", "tag", "category", "themes", "demographic",
+		)
 		private val CAPTCHA_KEYWORDS = listOf(
 			"cloudflare",
 			"turnstile",
