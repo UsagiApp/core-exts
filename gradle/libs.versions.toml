@@ -4,7 +4,9 @@ collectionKtx = "1.4.4"
 serializationJson = "1.7.3"
 okhttp = "5.3.2"
 okio = "3.17.0"
-jsoup = "1.22.1"
+# Keep Android 5, 6 compatible (with SDK 21 - 23)
+#noinspection NewerVersionAvailable
+jsoup = "1.17.2"
 json = "20251224"
 
 [libraries]

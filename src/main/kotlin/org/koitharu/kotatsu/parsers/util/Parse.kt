@@ -21,9 +21,8 @@ internal const val SCHEME_HTTPS = "https"
  */
 // TODO suspend
 public fun Response.parseHtml(): Document = use { response ->
-    val body = response.body!!
-    val charset = body.contentType()?.charset()?.name()
-    Jsoup.parse(body.byteStream(), charset, response.request.url.toString())
+    val body = response.body
+    Jsoup.parse(body.string(), response.request.url.toString())
 }
 
 /**
@@ -32,7 +31,7 @@ public fun Response.parseHtml(): Document = use { response ->
  * @see [parseHtml]
  */
 public fun Response.parseJson(): JSONObject = use { response ->
-    JSONObject(response.body!!.string())
+    JSONObject(response.body.string())
 }
 
 /**
@@ -41,15 +40,15 @@ public fun Response.parseJson(): JSONObject = use { response ->
  * @see [parseHtml]
  */
 public fun Response.parseJsonArray(): JSONArray = use { response ->
-    JSONArray(response.body!!.string())
+    JSONArray(response.body.string())
 }
 
 public fun Response.parseRaw(): String = use { response ->
-    response.body!!.string()
+    response.body.string()
 }
 
 public fun Response.parseBytes(): ByteArray = use { response ->
-    response.body!!.bytes()
+    response.body.bytes()
 }
 
 /**
@@ -99,4 +98,4 @@ public fun DateFormat.parseSafe(str: String?): Long = if (str.isNullOrEmpty()) {
 }
 
 @Deprecated("Useless since OkHttp 5.0", replaceWith = ReplaceWith("body"))
-public fun Response.requireBody(): ResponseBody = body!!
+public fun Response.requireBody(): ResponseBody = body
