@@ -8,14 +8,14 @@ plugins {
 }
 
 group = "com.github.UsagiApp"
-version = "1.0.3"
+version = "1.0.4"
 
 android {
     namespace = "org.koitharu.kotatsu.core.exts"
     compileSdk = 36
 
     defaultConfig {
-        minSdk = 23
+        minSdk = 21
     }
 
     compileOptions {

@@ -6,7 +6,9 @@ collectionKtx = "1.6.0"
 serializationJson = "1.11.0"
 okhttp = "5.3.2"
 okio = "3.17.0"
-jsoup = "1.22.1"
+# Keep Android 5, 6 compatible (with SDK 21 - 23)
+#noinspection NewerVersionAvailable
+jsoup = "1.17.2"
 json = "20251224"
 preference = "1.2.1"
 rxjava1 = "1.3.8"
@@ -15,6 +17,7 @@ rxjava1 = "1.3.8"
 androidx-collection-ktx = { module = "androidx.collection:collection-ktx", version.ref = "collectionKtx" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+#noinspection DuplicatePlatformClasses
 json = { module = "org.json:json", version.ref = "json" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
