@@ -20,6 +20,7 @@ data class TachiyomiRepoSource(
 	val extensionName: String,
 	val extensionPackageName: String,
 	val extensionVersion: String?,
+	val extensionVersionCode: Int,
 	val pluginFileName: String,
 	val repoOwnerTag: String,
 	val repoUrl: String,
@@ -91,6 +92,7 @@ object TachiyomiRepoIndex {
 			val apkName = extension.optString("apk").ifBlank { continue }
 			val extensionLang = extension.optString("lang")
 			val version = extension.optString("version").ifBlank { null }
+			val versionCode = extension.optInt("code", 0)
 			val isNsfw = parseNsfw(extension.opt("nsfw"))
 			val downloadUrl = "$repoRoot" + "apk/$apkName"
 
@@ -106,6 +108,7 @@ object TachiyomiRepoIndex {
 					extensionName = extensionName,
 					extensionPackageName = packageName,
 					extensionVersion = version,
+					extensionVersionCode = versionCode,
 					pluginFileName = apkName,
 					repoOwnerTag = ownerTag,
 					repoUrl = indexUrl,
@@ -130,6 +133,7 @@ object TachiyomiRepoIndex {
 					extensionName = extensionName,
 					extensionPackageName = packageName,
 					extensionVersion = version,
+					extensionVersionCode = versionCode,
 					pluginFileName = apkName,
 					repoOwnerTag = ownerTag,
 					repoUrl = indexUrl,
@@ -175,6 +179,7 @@ object TachiyomiRepoStore {
 		val ownerTag: String,
 		val indexUrl: String,
 		val extensionPackageName: String,
+		val versionCode: Int = 0,
 	)
 
 	fun listRepositories(context: Context): List<TachiyomiRepository> {
@@ -229,12 +234,14 @@ object TachiyomiRepoStore {
 		ownerTag: String,
 		indexUrl: String,
 		extensionPackageName: String,
+		versionCode: Int = 0,
 	) {
 		val meta = readInstalledMeta(context)
 		meta[pluginFileName] = InstalledPluginMeta(
 			ownerTag = normalizeOwnerTag(ownerTag),
 			indexUrl = indexUrl,
 			extensionPackageName = extensionPackageName,
+			versionCode = versionCode,
 		)
 		writeInstalledMeta(context, meta)
 	}
@@ -302,6 +309,7 @@ object TachiyomiRepoStore {
 					ownerTag = normalizeOwnerTag(ownerTag),
 					indexUrl = indexUrl,
 					extensionPackageName = extensionPackageName,
+					versionCode = obj.optInt(JSON_VERSION_CODE, 0),
 				)
 			}
 			out
@@ -316,7 +324,8 @@ object TachiyomiRepoStore {
 				JSONObject()
 					.put(JSON_OWNER_TAG, normalizeOwnerTag(value.ownerTag))
 					.put(JSON_INDEX_URL, value.indexUrl)
-					.put(JSON_EXTENSION_PACKAGE, value.extensionPackageName),
+					.put(JSON_EXTENSION_PACKAGE, value.extensionPackageName)
+					.put(JSON_VERSION_CODE, value.versionCode),
 			)
 		}
 		context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
@@ -335,4 +344,5 @@ object TachiyomiRepoStore {
 	private const val JSON_OWNER_TAG = "owner_tag"
 	private const val JSON_INDEX_URL = "index_url"
 	private const val JSON_EXTENSION_PACKAGE = "extension_package"
+	private const val JSON_VERSION_CODE = "version_code"
 }
