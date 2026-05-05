@@ -12,6 +12,7 @@ data class TachiyomiPluginSource(
 	val extensionClassName: String,
 	val pluginFileName: String,
 	val isNsfwSource: Boolean,
+	val repoOwnerTag: String = "",
 ) : MangaSource {
 	override val contentType: ContentType
 		get() = if (isNsfwSource) ContentType.HENTAI else ContentType.MANGA

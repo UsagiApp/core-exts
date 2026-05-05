@@ -64,13 +64,17 @@ class TachiyomiMangaParser(
 	override val config get() = sourceConfig
 
 	override val availableSortOrders: Set<SortOrder> = buildSet {
-		add(SortOrder.POPULARITY)
-		if (tachiyomiSource.supportsLatest) add(SortOrder.UPDATED)
-		add(SortOrder.RELEVANCE)
 		val info = try { extractFilterInfo() } catch (_: Exception) { null }
-		if (info != null) {
+		if (info != null && info.detectedSortOrders.isNotEmpty()) {
 			addAll(info.detectedSortOrders)
+		} else {
+			// Fallback: only add what the extension endpoints actually support
+			add(SortOrder.POPULARITY)
+			if (tachiyomiSource.supportsLatest) add(SortOrder.UPDATED)
 		}
+		// Ensure the basic endpoints are represented if not already covered by Filter.Sort
+		if (none { it == SortOrder.POPULARITY }) add(SortOrder.POPULARITY)
+		if (tachiyomiSource.supportsLatest && none { it in LATEST_SORT_ORDERS }) add(SortOrder.UPDATED)
 	}
 
 	@Suppress("DEPRECATION")
@@ -116,11 +120,13 @@ class TachiyomiMangaParser(
 				|| filter.contentRating.isNotEmpty() || filter.demographics.isNotEmpty()
 				|| filter.year > 0 || filter.yearFrom > 0 || filter.yearTo > 0
 				|| !filter.author.isNullOrBlank() || filter.originalLocale != null
-		val hasSortFilter = cachedFilterInfo.sortFilterIndex >= 0
+		val info = cachedFilterInfo
+		val hasSortFilter = info.sortFilterIndex >= 0
+		val orderMappedInSort = hasSortFilter && info.sortMapping.any { it.second == order }
 		val pagingKey = when {
 			query.isNotEmpty() -> "search|$query"
 			hasFilters -> "search|filters|${filter.hashCode()}"
-			hasSortFilter -> "search|sort|${order.name}"
+			orderMappedInSort -> "search|sort|${order.name}"
 			order in LATEST_SORT_ORDERS && tachiyomiSource.supportsLatest -> "latest"
 			else -> "popular"
 		}
@@ -131,20 +137,20 @@ class TachiyomiMangaParser(
 		}
 		val page = resolvePage(pagingKey, offset)
 		val mangasPage = when (pagingKey) {
-            "latest" -> {
-                syncWebSession(httpSource?.invokeRequestUrl("latestUpdatesRequest", page))
-                tachiyomiSource.getLatestUpdates(page)
-            }
-            "popular" -> {
-                syncWebSession(httpSource?.invokeRequestUrl("popularMangaRequest", page))
-                tachiyomiSource.getPopularManga(page)
-            }
-            else -> {
-                val searchFilters = buildTachiyomiFilterList(filter, order)
-                syncWebSession(httpSource?.invokeRequestUrl("searchMangaRequest", page, query, searchFilters))
-                tachiyomiSource.getSearchManga(page, query, searchFilters)
-            }
-        }
+			"latest" -> {
+				syncWebSession(httpSource?.invokeRequestUrl("latestUpdatesRequest", page))
+				tachiyomiSource.getLatestUpdates(page)
+			}
+			"popular" -> {
+				syncWebSession(httpSource?.invokeRequestUrl("popularMangaRequest", page))
+				tachiyomiSource.getPopularManga(page)
+			}
+			else -> {
+				val searchFilters = buildTachiyomiFilterList(filter, order)
+				syncWebSession(httpSource?.invokeRequestUrl("searchMangaRequest", page, query, searchFilters))
+				tachiyomiSource.getSearchManga(page, query, searchFilters)
+			}
+		}
 		updatePaging(
 			pagingKey = pagingKey,
 			offset = offset,
@@ -989,15 +995,24 @@ class TachiyomiMangaParser(
 	private fun matchSortOrder(value: String): SortOrder? {
 		val v = value.lowercase(Locale.ROOT).trim()
 		return when {
-			v == "latest" || v.contains("latest update") || v.contains("last update") -> SortOrder.UPDATED
-			v == "newest" || v.contains("newest") || v.contains("recently added") || v.contains("new") -> SortOrder.NEWEST
-			v.contains("popular") || v.contains("most view") || v.contains("trending") || v.contains("hot") -> SortOrder.POPULARITY
-			v.contains("rating") || v.contains("top rated") || v.contains("score") || v.contains("best") -> SortOrder.RATING
-			v.contains("a-z") || v.contains("alphabetical") || v.contains("title") || v.contains("name") -> SortOrder.ALPHABETICAL
-			v.contains("z-a") -> SortOrder.ALPHABETICAL_DESC
-			v.contains("relevance") || v.contains("relevant") -> SortOrder.RELEVANCE
+			v == "latest" || v.contains("latest update") || v.contains("last update")
+				|| v.contains("recently updated") || v.contains("recent update") -> SortOrder.UPDATED
+			v == "newest" || v.contains("newest") || v.contains("recently added")
+				|| v.contains("added") || v.contains("date added") -> SortOrder.NEWEST
+			v.contains("popular") || v.contains("most view") || v.contains("trending")
+				|| v.contains("hot") || v.contains("views") || v.contains("most read")
+				|| v.contains("top") && !v.contains("rated") -> SortOrder.POPULARITY
+			v.contains("rating") || v.contains("top rated") || v.contains("score")
+				|| v.contains("best") || v.contains("highest rated") -> SortOrder.RATING
+			v.contains("a-z") || v.contains("alphabetical") || v.contains("title")
+				|| v == "name" || v.contains("az") -> SortOrder.ALPHABETICAL
+			v.contains("z-a") || v.contains("za") -> SortOrder.ALPHABETICAL_DESC
+			v.contains("relevance") || v.contains("relevant") || v.contains("match") -> SortOrder.RELEVANCE
 			v.contains("oldest") -> SortOrder.NEWEST_ASC
-			v.contains("year") -> SortOrder.NEWEST
+			v.contains("bookmark") || v.contains("follow") || v.contains("subscribe") -> SortOrder.POPULARITY
+			v.contains("comment") -> SortOrder.POPULARITY
+			v.contains("random") -> SortOrder.UPDATED
+			v == "new" -> SortOrder.NEWEST
 			else -> null
 		}
 	}

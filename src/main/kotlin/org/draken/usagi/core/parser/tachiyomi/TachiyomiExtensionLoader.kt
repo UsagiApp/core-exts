@@ -42,6 +42,54 @@ object TachiyomiExtensionLoader {
 		)
 	}
 
+	/**
+	 * Load Tachiyomi extension sources from a system-installed APK package.
+	 */
+	fun loadFromInstalledPackage(
+		context: Context,
+		packageName: String,
+		optimizedDirectory: String,
+		parent: ClassLoader,
+	): TachiyomiExtensionLoadResult? {
+		val pm = context.packageManager
+		val appInfo = try {
+			if (Build.VERSION.SDK_INT >= 33) {
+				pm.getApplicationInfo(
+					packageName,
+					PackageManager.ApplicationInfoFlags.of(PackageManager.GET_META_DATA.toLong()),
+				)
+			} else {
+				@Suppress("DEPRECATION")
+				pm.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+			}
+		} catch (_: PackageManager.NameNotFoundException) {
+			return null
+		}
+		val apkPath = appInfo.sourceDir ?: return null
+		val metaData = appInfo.metaData ?: return null
+		var className = metaData.getString(METADATA_SOURCE_CLASS).orEmpty().trim()
+		if (className.isBlank()) return null
+		if (className.startsWith('.')) {
+			className = packageName + className
+		}
+		val isNsfw = parseNsfw(metaData.get(METADATA_NSFW))
+		val meta = TachiyomiExtensionMeta(
+			packageName = packageName,
+			className = className,
+			isNsfw = isNsfw,
+		)
+		val classLoader = DexClassLoader(apkPath, optimizedDirectory, null, parent)
+		val sources = runCatching {
+			createSources(classLoader, meta.className)
+		}.getOrElse { emptyList() }
+		if (sources.isEmpty()) return null
+		return TachiyomiExtensionLoadResult(
+			classLoader = classLoader,
+			extensionMeta = meta,
+			sources = sources,
+		)
+	}
+
 	fun readExtensionMeta(context: Context, apk: File): TachiyomiExtensionMeta? {
 		val packageInfo = if (Build.VERSION.SDK_INT >= 33) {
 			context.packageManager.getPackageArchiveInfo(
@@ -73,7 +121,7 @@ object TachiyomiExtensionLoader {
 
 	fun createSources(classLoader: ClassLoader, className: String): List<CatalogueSource> {
 		val clazz = classLoader.loadClass(className)
-        val allSources = when (val instance = clazz.getDeclaredConstructor().newInstance()) {
+		val allSources = when (val instance = clazz.getDeclaredConstructor().newInstance()) {
 			is Source -> listOf(instance)
 			is SourceFactory -> instance.createSources()
 			else -> emptyList()
