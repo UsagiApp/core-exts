@@ -63,18 +63,20 @@ class TachiyomiMangaParser(
 
 	override val config get() = sourceConfig
 
-	override val availableSortOrders: Set<SortOrder> = buildSet {
-		val info = try { extractFilterInfo() } catch (_: Exception) { null }
-		if (info != null && info.detectedSortOrders.isNotEmpty()) {
-			addAll(info.detectedSortOrders)
-		} else {
-			// Fallback: only add what the extension endpoints actually support
-			add(SortOrder.POPULARITY)
-			if (tachiyomiSource.supportsLatest) add(SortOrder.UPDATED)
+	override val availableSortOrders: Set<SortOrder> by lazy {
+		buildSet {
+			val info = try { cachedFilterInfo } catch (_: Exception) { null }
+			if (info != null && info.detectedSortOrders.isNotEmpty()) {
+				addAll(info.detectedSortOrders)
+			} else {
+				// Fallback: only add what the extension endpoints actually support
+				add(SortOrder.POPULARITY)
+				if (tachiyomiSource.supportsLatest) add(SortOrder.UPDATED)
+			}
+			// Ensure the basic endpoints are represented if not already covered by Filter.Sort
+			if (none { it == SortOrder.POPULARITY }) add(SortOrder.POPULARITY)
+			if (tachiyomiSource.supportsLatest && none { it in LATEST_SORT_ORDERS }) add(SortOrder.UPDATED)
 		}
-		// Ensure the basic endpoints are represented if not already covered by Filter.Sort
-		if (none { it == SortOrder.POPULARITY }) add(SortOrder.POPULARITY)
-		if (tachiyomiSource.supportsLatest && none { it in LATEST_SORT_ORDERS }) add(SortOrder.UPDATED)
 	}
 
 	@Suppress("DEPRECATION")
@@ -92,7 +94,7 @@ class TachiyomiMangaParser(
 				|| info.ratingFilterIndex >= 0 || info.demographicFilterIndex >= 0,
 			isYearSupported = info.yearFilterIndex >= 0,
 			isYearRangeSupported = info.yearFromFilterIndex >= 0 || info.yearToFilterIndex >= 0,
-			isOriginalLocaleSupported = info.localeFilterIndex >= 0,
+			isOriginalLocaleSupported = false, // Each Tachiyomi extension is already language-specific
 			isAuthorSearchSupported = info.authorFilterIndex >= 0,
 		)
 	}
@@ -225,7 +227,7 @@ class TachiyomiMangaParser(
 			availableContentRating = info.ratingMappedValues.map { it.second }.toSet(),
 			availableContentTypes = info.typeMappedValues.map { it.second }.toSet(),
 			availableDemographics = info.demographicValues.map { it.second }.toSet(),
-			availableLocales = info.localeValues.map { it.second }.toSet(),
+			availableLocales = emptySet(), // Each Tachiyomi extension is already language-specific
 		)
 	}
 
