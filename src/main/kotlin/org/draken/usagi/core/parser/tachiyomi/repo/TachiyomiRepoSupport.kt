@@ -41,6 +41,14 @@ data class TachiyomiRepoSource(
 
 	val key: String
 		get() = "$extensionPackageName:$sourceId"
+
+	val iconUrl: String?
+		get() {
+			val repoRoot = repoUrl.substringBeforeLast('/', "")
+			if (repoRoot.isBlank()) return null
+			val apkBase = pluginFileName.removeSuffix(".apk")
+			return "$repoRoot/icon/$apkBase.png"
+		}
 }
 
 object TachiyomiRepoIndex {
