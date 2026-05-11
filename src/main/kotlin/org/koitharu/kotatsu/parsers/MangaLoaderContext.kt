@@ -17,11 +17,11 @@ public abstract class MangaLoaderContext {
 
 	public abstract val cookieJar: CookieJar
 
-	public open fun newParserInstance(source: MangaSource): MangaParser = throw UnsupportedOperationException("Not implemented")
+	public abstract fun newParserInstance(source: MangaSource): MangaParser
 
-    public abstract fun getParserSources(): List<MangaSource>
+	public abstract fun getParserSources(): List<MangaSource>
 
-	public fun newLinkResolver(link: HttpUrl): LinkResolver = LinkResolver(this, link)
+	public fun newLinkResolver(link: HttpUrl): LinkResolver = LinkResolver(link, context = this)
 
 	public fun newLinkResolver(link: String): LinkResolver = newLinkResolver(link.toHttpUrl())
 

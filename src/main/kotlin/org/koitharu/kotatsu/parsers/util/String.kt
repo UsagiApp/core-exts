@@ -13,7 +13,7 @@ import kotlin.contracts.contract
 import kotlin.math.min
 
 private val REGEX_WHITESPACE = Regex("\\s+")
-internal const val LONG_HASH_SEED = 1125899906842597L
+public const val LONG_HASH_SEED = 1125899906842597L
 
 public fun String.removeSurrounding(vararg chars: Char): String {
 	if (isEmpty()) {
@@ -83,7 +83,7 @@ public fun String.splitTwoParts(delimiter: Char): Pair<String, String>? {
 			indices += i
 		}
 	}
-	if (indices.isEmpty() || indices.size and 1 == 0) {
+	if (indices.isEmpty() || (indices.size and 1) == 0) {
 		return null
 	}
 	val index = indices[indices.size / 2]
@@ -227,7 +227,7 @@ public fun String.almostEquals(other: String, threshold: Float): Boolean {
 
 public fun String.isNumeric(): Boolean = all { c -> c.isDigit() }
 
-internal fun StringBuilder.removeTrailingZero() {
+public fun StringBuilder.removeTrailingZero() {
 	if (length > 2 && get(length - 1) == '0') {
 		val dot = get(length - 2)
 		if (dot == ',' || dot == '.') {

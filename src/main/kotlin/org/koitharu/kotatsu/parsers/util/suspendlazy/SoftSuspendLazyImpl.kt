@@ -9,7 +9,7 @@ import kotlin.coroutines.CoroutineContext
 /**
  * Like a [SuspendLazy] but with [SoftReference] under the hood
  */
-internal class SoftSuspendLazyImpl<T : Any>(
+public class SoftSuspendLazyImpl<T : Any>(
 	private val coroutineContext: CoroutineContext,
 	private val initializer: SuspendLazyInitializer<T>,
 ) : SuspendLazy<T> {

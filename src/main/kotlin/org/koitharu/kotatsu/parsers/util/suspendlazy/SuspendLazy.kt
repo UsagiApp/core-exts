@@ -4,7 +4,7 @@ import org.koitharu.kotatsu.parsers.util.runCatchingCancellable
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
-internal typealias SuspendLazyInitializer<T> = suspend () -> T
+public typealias SuspendLazyInitializer<T> = suspend () -> T
 
 public interface SuspendLazy<T> {
 

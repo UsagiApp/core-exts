@@ -2,7 +2,7 @@ package org.koitharu.kotatsu.parsers.util.json
 
 import org.json.JSONObject
 
-internal class JSONObjectTypedIterableWrapper<T : Any>(
+public class JSONObjectTypedIterableWrapper<T : Any>(
 	private val json: JSONObject,
 	private val typeClass: Class<T>,
 ) : Iterable<Map.Entry<String, T>> {

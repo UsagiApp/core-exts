@@ -2,7 +2,7 @@ package org.koitharu.kotatsu.parsers.util.json
 
 import org.json.JSONArray
 
-internal class JSONArrayTypedListWrapper<T : Any>(
+public class JSONArrayTypedListWrapper<T : Any>(
 	private val jsonArray: JSONArray,
 	private val typeClass: Class<T>,
 ) : List<T> {

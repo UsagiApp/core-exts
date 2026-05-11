@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package org.koitharu.kotatsu.parsers.model.search
 
 import androidx.collection.ArrayMap

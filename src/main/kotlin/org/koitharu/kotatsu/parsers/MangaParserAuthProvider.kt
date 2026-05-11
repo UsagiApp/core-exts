@@ -1,30 +1,22 @@
 package org.koitharu.kotatsu.parsers
 
-import org.koitharu.kotatsu.parsers.exception.AuthRequiredException
-import org.koitharu.kotatsu.parsers.exception.ParseException
-
-/**
- * Implement this in your parser for authorization support
- */
 public interface MangaParserAuthProvider {
 
 	/**
-	 * Return link to the login page, which will be opened in browser.
-	 * Must be an absolute url
+	 * URL for authentication web page, if applicable.
+	 * May be null if auth is handled differently.
 	 */
 	public val authUrl: String
 
 	/**
-	 * Quick check if user is logged in.
-	 * In most case you should check for cookies in [MangaLoaderContext.cookieJar].
+	 * Check if user is authorized.
+	 * Backward-compatible suspend function version.
 	 */
 	public suspend fun isAuthorized(): Boolean
 
 	/**
-	 * Fetch and return current user`s name or login.
-	 * Normally should not be called if [isAuthorized] returns false
-	 * @throws [AuthRequiredException] if user is not logged in or authorization is expired
-	 * @throws [ParseException] on parsing error
+	 * Get username of authorized user.
+	 * Backward-compatible for parsers that implemented this.
 	 */
-	public suspend fun getUsername(): String
+	public suspend fun getUsername(): String? = null
 }

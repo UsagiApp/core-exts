@@ -27,13 +27,32 @@ publishing {
     }
 }
 
+tasks.jar {
+    exclude("android/**")
+    exclude("androidx/annotation/**")
+    exclude("androidx/preference/**")
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        freeCompilerArgs.addAll(
+            "-Xannotation-default-target=param-property",
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=kotlin.contracts.ExperimentalContracts",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=org.koitharu.kotatsu.parsers.InternalParsersApi",
+        )
+    }
+}
+
 dependencies {
     implementation(libs.androidx.collection.ktx)
+    implementation(libs.androidx.annotation)
 
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
 
-    implementation(libs.jsoup)
+    api(libs.jsoup)
     implementation(libs.json)
 
     implementation(libs.bundles.okhttp)

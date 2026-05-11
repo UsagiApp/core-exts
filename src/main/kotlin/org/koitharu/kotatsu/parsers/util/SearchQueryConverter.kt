@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package org.koitharu.kotatsu.parsers.util
 
 import org.koitharu.kotatsu.parsers.model.MangaListFilter
@@ -20,7 +22,7 @@ import org.koitharu.kotatsu.parsers.model.search.SearchableField.*
  * @param filter The [MangaListFilter] to convert.
  * @return A [MangaSearchQuery] constructed based on the given [filter].
  */
-internal fun convertToMangaSearchQuery(offset: Int, sortOrder: SortOrder, filter: MangaListFilter): MangaSearchQuery {
+public fun convertToMangaSearchQuery(offset: Int, sortOrder: SortOrder, filter: MangaListFilter): MangaSearchQuery {
 	return MangaSearchQuery.Builder().apply {
 		offset(offset)
 		order(sortOrder)
@@ -73,7 +75,7 @@ internal fun convertToMangaSearchQuery(offset: Int, sortOrder: SortOrder, filter
  * @return A {@link MangaListFilter} constructed based on the given {@code searchQuery}.
  * @throws UnsupportedOperationException If the search criteria contain unsupported fields.
  */
-internal fun convertToMangaListFilter(searchQuery: MangaSearchQuery): MangaListFilter {
+public fun convertToMangaListFilter(searchQuery: MangaSearchQuery): MangaListFilter {
 	return MangaListFilter.Builder().apply {
 		for (criterion in searchQuery.criteria) {
 			when (criterion) {
@@ -86,7 +88,7 @@ internal fun convertToMangaListFilter(searchQuery: MangaSearchQuery): MangaListF
 	}.build()
 }
 
-internal fun MangaSearchQueryCapabilities.toMangaListFilterCapabilities() = MangaListFilterCapabilities(
+public fun MangaSearchQueryCapabilities.toMangaListFilterCapabilities() = MangaListFilterCapabilities(
 	isMultipleTagsSupported = capabilities.any { x -> x.field == TAG && x.isMultiple },
 	isTagsExclusionSupported = capabilities.any { x -> x.field == TAG && x.criteriaTypes.contains(Exclude::class) },
 	isSearchSupported = capabilities.any { x -> x.field == TITLE_NAME },
@@ -97,7 +99,7 @@ internal fun MangaSearchQueryCapabilities.toMangaListFilterCapabilities() = Mang
 	isAuthorSearchSupported = capabilities.any { x -> x.field == AUTHOR },
 )
 
-internal fun MangaListFilterCapabilities.toMangaSearchQueryCapabilities(): MangaSearchQueryCapabilities =
+public fun MangaListFilterCapabilities.toMangaSearchQueryCapabilities(): MangaSearchQueryCapabilities =
 	MangaSearchQueryCapabilities(
 		capabilities = setOfNotNull(
 			isMultipleTagsSupported.takeIf { it }?.let {

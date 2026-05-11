@@ -1,6 +1,6 @@
 package org.koitharu.kotatsu.parsers.network
 
-internal object CommonHeaders {
+public object CommonHeaders {
 
 	const val REFERER: String = "Referer"
 	const val USER_AGENT: String = "User-Agent"

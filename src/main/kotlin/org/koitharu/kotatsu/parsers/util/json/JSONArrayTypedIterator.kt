@@ -2,7 +2,7 @@ package org.koitharu.kotatsu.parsers.util.json
 
 import org.json.JSONArray
 
-internal class JSONArrayTypedIterator<T : Any>(
+public class JSONArrayTypedIterator<T : Any>(
 	private val array: JSONArray,
 	private val typeClass: Class<T>,
 	startIndex: Int,

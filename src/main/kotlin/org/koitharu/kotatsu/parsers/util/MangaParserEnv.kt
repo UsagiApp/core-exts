@@ -5,19 +5,20 @@ import org.jsoup.nodes.Element
 import org.koitharu.kotatsu.parsers.ErrorMessages
 import org.koitharu.kotatsu.parsers.InternalParsersApi
 import org.koitharu.kotatsu.parsers.MangaParser
+import org.koitharu.kotatsu.parsers.core.AbstractMangaParser
 import org.koitharu.kotatsu.parsers.exception.ParseException
 import org.koitharu.kotatsu.parsers.model.*
 
 
 /**
  * Create a unique id for [Manga]/[MangaChapter]/[MangaPage].
+ * @param source the manga source
  * @param url must be relative url, without a domain
  * @see [Manga.id]
  * @see [MangaChapter.id]
  * @see [MangaPage.id]
  */
-@InternalParsersApi
-public fun MangaParser.generateUid(url: String): Long {
+public fun generateUid(source: MangaSource, url: String): Long {
 	var h = LONG_HASH_SEED
 	source.name.forEach { c ->
 		h = 31 * h + c.code
@@ -30,13 +31,13 @@ public fun MangaParser.generateUid(url: String): Long {
 
 /**
  * Create a unique id for [Manga]/[MangaChapter]/[MangaPage].
+ * @param source the manga source
  * @param id an internal identifier
  * @see [Manga.id]
  * @see [MangaChapter.id]
  * @see [MangaPage.id]
  */
-@InternalParsersApi
-public fun MangaParser.generateUid(id: Long): Long {
+public fun generateUid(source: MangaSource, id: Long): Long {
 	var h = LONG_HASH_SEED
 	source.name.forEach { c ->
 		h = 31 * h + c.code
@@ -81,15 +82,23 @@ private fun <T> Set<T>?.oneOrThrowIfMany(msg: String): T? = when {
 	else -> throw IllegalArgumentException(msg)
 }
 
-@InternalParsersApi
-public fun MangaParser.getDomain(subdomain: String): String {
-	val domain = domain
-	return subdomain + "." + domain.removePrefix("www.")
-}
-
-@InternalParsersApi
-public fun MangaParser.urlBuilder(subdomain: String? = null): HttpUrl.Builder {
+public fun urlBuilder(domain: String, subdomain: String? = null): HttpUrl.Builder {
 	return HttpUrl.Builder()
 		.scheme(SCHEME_HTTPS)
 		.host(if (subdomain == null) domain else "$subdomain.$domain")
+}
+
+public fun MangaParser.generateUid(url: String): Long =
+	org.koitharu.kotatsu.parsers.util.generateUid(source, url)
+
+public fun MangaParser.generateUid(id: Long): Long =
+	org.koitharu.kotatsu.parsers.util.generateUid(source, id)
+
+
+public fun MangaParser.urlBuilder(subdomain: String? = null): HttpUrl.Builder =
+	org.koitharu.kotatsu.parsers.util.urlBuilder(domain, subdomain)
+
+@InternalParsersApi
+public fun getDomain(parser: MangaParser, subdomain: String): String {
+	return subdomain + "." + parser.domain.removePrefix("www.")
 }

@@ -5,7 +5,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
-internal class SuspendLazyImpl<T>(
+public class SuspendLazyImpl<T>(
 	private val coroutineContext: CoroutineContext,
 	private val initializer: SuspendLazyInitializer<T>,
 ) : SuspendLazy<T> {

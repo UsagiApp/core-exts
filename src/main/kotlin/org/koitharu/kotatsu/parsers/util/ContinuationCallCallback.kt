@@ -9,7 +9,7 @@ import okhttp3.internal.closeQuietly
 import java.io.IOException
 import kotlin.coroutines.resumeWithException
 
-internal class ContinuationCallCallback(
+public class ContinuationCallCallback(
     private val call: Call,
     private val continuation: CancellableContinuation<Response>,
 ) : Callback, CompletionHandler {

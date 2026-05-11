@@ -4,13 +4,20 @@ package org.koitharu.kotatsu.parsers.util
 
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.*
-import okhttp3.internal.toLongOrDefault
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 public suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
-    val callback = ContinuationCallCallback(this, continuation)
-    continuation.invokeOnCancellation(callback)
+    val callback = object : Callback {
+        override fun onFailure(call: Call, e: java.io.IOException) {
+            continuation.resumeWith(Result.failure(e))
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            continuation.resumeWith(Result.success(response))
+        }
+    }
+    continuation.invokeOnCancellation { cancel() }
     enqueue(callback)
 }
 
@@ -21,7 +28,8 @@ public val HttpUrl.isHttpOrHttps: Boolean
     get() = scheme.equals("https", ignoreCase = true) || scheme.equals("http", ignoreCase = true)
 
 public fun Headers.Builder.mergeWith(other: Headers, replaceExisting: Boolean): Headers.Builder {
-    for ((name, value) in other) {
+    for (name in other.names()) {
+        val value = other[name] ?: continue
         if (replaceExisting || this[name] == null) {
             this[name] = value
         }
@@ -43,14 +51,14 @@ public inline fun Response.map(mapper: (ResponseBody) -> ResponseBody): Response
     contract {
         callsInPlace(mapper, InvocationKind.AT_MOST_ONCE)
     }
-    val b = body ?: return this
-    return b.use { responseBody ->
+    return body.use { responseBody ->
         newBuilder()
             .body(mapper(responseBody))
             .build()
     }
 }
 
-public fun Response.headersContentLength(
-    defaultValue: Long = -1,
-): Long = headers["Content-Length"]?.toLongOrDefault(defaultValue) ?: defaultValue
+public fun Response.headersContentLength(): Long = headersContentLength
+
+public val Response.headersContentLength: Long
+	get() = header("Content-Length")?.toLongOrNull() ?: -1L

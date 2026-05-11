@@ -41,13 +41,11 @@ public inline fun <T> List<T>.flatMapChapters(
 	return builder.toList()
 }
 
-@PublishedApi
-internal fun <T> Iterable<T>.collectionSize(): Int {
+public fun <T> Iterable<T>.collectionSize(): Int {
 	return if (this is Collection<*>) this.size else 10
 }
 
-@PublishedApi
-internal class ChaptersListBuilder(initialSize: Int) {
+public class ChaptersListBuilder(initialSize: Int) {
 
 	private val ids = HashSet<Long>(initialSize)
 	private val list = ArrayList<MangaChapter>(initialSize)

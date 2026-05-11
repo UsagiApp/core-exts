@@ -7,39 +7,24 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.koitharu.kotatsu.parsers.MangaLoaderContext
 import org.koitharu.kotatsu.parsers.MangaParser
 import org.koitharu.kotatsu.parsers.model.*
-import org.koitharu.kotatsu.parsers.util.suspendlazy.suspendLazy
 
-public class LinkResolver internal constructor(
-	private val context: MangaLoaderContext,
+public class LinkResolver(
 	public val link: HttpUrl,
+	public val context: MangaLoaderContext? = null,
+	public val parser: MangaParser? = null,
 ) {
 
-	private val source = suspendLazy(Dispatchers.Default, ::resolveSource)
-
-	public suspend fun getSource(): MangaSource? = source.get()
+	public suspend fun getSource(): MangaSource? = parser?.source
 
 	public suspend fun getManga(): Manga? {
-		val parser = context.newParserInstance(source.get() ?: return null)
-		return parser.resolveLink(this, link) ?: resolveManga(parser)
+		val p = parser ?: return null // TODO: implement global link resolution via context
+		return p.resolveLink(link) ?: resolveManga(p)
 	}
 
-	private suspend fun resolveSource(): MangaSource? = runInterruptible(Dispatchers.Default) {
-		val domains = setOfNotNull(link.host, link.topPrivateDomain())
-		for (s in context.getParserSources()) {
-			val parser = context.newParserInstance(s)
-			for (d in parser.configKeyDomain.presetValues) {
-				if (d in domains) {
-					return@runInterruptible s
-				}
-			}
-		}
-		null
-	}
-
-	internal suspend fun resolveManga(
+	public suspend fun resolveManga(
 		parser: MangaParser,
 		url: String = link.toString().toRelativeUrl(link.host),
-		id: Long = parser.generateUid(url),
+		id: Long = generateUid(parser.source, url),
 		title: String = STUB_TITLE,
 	): Manga? = resolveBySeed(
 		parser,
@@ -73,14 +58,14 @@ public class LinkResolver internal constructor(
 			seed.authors.isNotEmpty() -> seed.authors.first()
 			else -> return seed // unfortunately we do not know a real manga title so unable to find it
 		}
-		val resolved = runCatchingCancellable {
+		val resolved = runCatching {
 			val list = parser.getList(0, parser.bestSortOrder(), MangaListFilter(query = query))
 			list.singleOrNull { manga -> isSameUrl(manga.publicUrl) }
 		}.getOrNull()
 		if (resolved == null) {
 			return seed
 		}
-		return runCatchingCancellable {
+		return runCatching {
 			parser.getDetails(resolved)
 		}.getOrElse {
 			resolved.copy(
@@ -110,11 +95,10 @@ public class LinkResolver internal constructor(
 		if (SortOrder.RELEVANCE in supported) {
 			return SortOrder.RELEVANCE
 		}
-		return SortOrder.entries.first { it in supported }
+		return SortOrder.values().first { it in supported }
 	}
 
 	private companion object {
-
 		const val STUB_TITLE = "Unknown manga"
 	}
 }

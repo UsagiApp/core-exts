@@ -1,7 +1,5 @@
 package org.koitharu.kotatsu.parsers.model
 
-import org.koitharu.kotatsu.parsers.MangaParser
-
 public data class MangaPage(
 	/**
 	 * Unique identifier for page
@@ -11,7 +9,6 @@ public data class MangaPage(
 	 * Relative url to page (**without** a domain) or any other uri.
 	 * Used principally in parsers.
 	 * May contain link to image or html page.
-	 * @see MangaParser.getPageUrl
 	 */
 	@JvmField public val url: String,
 	/**

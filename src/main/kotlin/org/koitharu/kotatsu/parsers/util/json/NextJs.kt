@@ -209,7 +209,7 @@ public fun Response.extractNextJs(
 ): Any? {
     val contentType = header("Content-Type") ?: ""
     return when {
-        "text/x-component" in contentType -> body!!.string().extractNextJsRsc(predicate)
+        "text/x-component" in contentType -> body.string().extractNextJsRsc(predicate)
         "text/html" in contentType -> parseHtml().extractNextJs(predicate)
         else -> error("Unsupported Content-Type for Next.js extraction: $contentType")
     }

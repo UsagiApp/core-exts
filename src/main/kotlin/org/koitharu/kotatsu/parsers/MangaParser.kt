@@ -1,16 +1,16 @@
+@file:Suppress("DEPRECATION")
+
 package org.koitharu.kotatsu.parsers
 
 import okhttp3.Headers
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import org.koitharu.kotatsu.parsers.config.ConfigKey
 import org.koitharu.kotatsu.parsers.config.MangaSourceConfig
 import org.koitharu.kotatsu.parsers.model.*
 import org.koitharu.kotatsu.parsers.model.search.MangaSearchQuery
 import org.koitharu.kotatsu.parsers.model.search.MangaSearchQueryCapabilities
-import org.koitharu.kotatsu.parsers.util.LinkResolver
-import org.koitharu.kotatsu.parsers.util.convertToMangaSearchQuery
-import org.koitharu.kotatsu.parsers.util.toMangaListFilterCapabilities
 import java.util.*
 
 public interface MangaParser : Interceptor {
@@ -83,6 +83,18 @@ public interface MangaParser : Interceptor {
 	 * Return [Manga] object by web link to it
 	 * @see [Manga.publicUrl]
 	 */
-	@InternalParsersApi
-	public suspend fun resolveLink(resolver: LinkResolver, link: HttpUrl): Manga?
+	public suspend fun resolveLink(link: HttpUrl): Manga? {
+		return resolveLink(org.koitharu.kotatsu.parsers.util.LinkResolver(link, parser = this), link)
+	}
+
+	@Deprecated("Use resolveLink(HttpUrl) instead")
+	public suspend fun resolveLink(resolver: org.koitharu.kotatsu.parsers.util.LinkResolver, link: HttpUrl): Manga? = null
+
+	/**
+	 * Backward-compatible overload for resolveLink with String
+	 */
+	public suspend fun resolveLink(link: String): Manga? {
+		val url = link.toHttpUrlOrNull() ?: return null
+		return resolveLink(url)
+	}
 }

@@ -211,7 +211,7 @@ public fun String.cssUrl(): String? {
 	}
 }
 
-internal inline fun <T : Any> Element.parseNotNull(value: T?, lazyMessage: () -> String): T {
+public inline fun <T : Any> Element.parseNotNull(value: T?, lazyMessage: () -> String): T {
 	contract {
 		returns() implies (value != null)
 	}
