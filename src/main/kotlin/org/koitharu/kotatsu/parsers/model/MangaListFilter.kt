@@ -56,8 +56,12 @@ public data class MangaListFilter(
 		private var year: Int = YEAR_UNKNOWN
 		private var yearFrom: Int = YEAR_UNKNOWN
 		private var yearTo: Int = YEAR_UNKNOWN
+		private var author: String? = null
+
 
 		fun query(query: String?): Builder = apply { this.query = query }
+		fun author(author: String?): Builder = apply { this.author = author }
+
 		fun addTag(tag: MangaTag): Builder = apply { tags.add(tag) }
 		fun addTags(tags: Collection<MangaTag>): Builder = apply { this.tags.addAll(tags) }
 		fun excludeTag(tag: MangaTag): Builder = apply { tagsExclude.add(tag) }
@@ -82,7 +86,8 @@ public data class MangaListFilter(
 
 		fun build(): MangaListFilter = MangaListFilter(
 			query, tags, tagsExclude, locale, originalLocale, states,
-			contentRating, types, demographics, year, yearFrom, yearTo,
+			contentRating, types, demographics, year, yearFrom, yearTo, author
 		)
+
 	}
 }
