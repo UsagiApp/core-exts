@@ -1,25 +1,25 @@
 [versions]
+annotation = "1.9.1"
 coroutines = "1.10.2"
 collectionKtx = "1.4.4"
-serializationJson = "1.7.3"
+serialization = "1.9.0"
 okhttp = "5.3.2"
 okio = "3.17.0"
 # Keep Android 5, 6 compatible (with SDK 21 - 23)
 #noinspection NewerVersionAvailable
 jsoup = "1.17.2"
 json = "20251224"
-androidxAnnotation = "1.9.1"
 
 [libraries]
 androidx-collection-ktx = { module = "androidx.collection:collection-ktx", version.ref = "collectionKtx" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 json = { module = "org.json:json", version.ref = "json" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
-kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serializationJson" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-doh = { module = "com.squareup.okhttp3:okhttp-dnsoverhttps", version.ref = "okhttp" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
-androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidxAnnotation" }
+androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 
 [bundles]
 okhttp = ["okhttp", "okhttp-doh"]
