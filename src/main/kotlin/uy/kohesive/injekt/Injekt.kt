@@ -30,3 +30,6 @@ public object Injekt : InjektRegistrar {
 
 /** Top-level get extension matching uy.kohesive.injekt.api.get import pattern */
 public inline fun <reified T : Any> Injekt.get(): T = this.get(T::class.java)
+
+/** Top-level injectLazy matching uy.kohesive.injekt.injectLazy import pattern */
+public inline fun <reified T : Any> injectLazy(): Lazy<T> = lazy { Injekt.get<T>() }
